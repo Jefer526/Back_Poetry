@@ -1,14 +1,14 @@
 """
-Configuración del Django Admin para Inventario
+Admin de Inventario - VERSIÓN FINAL SIMPLE
+Sin cantidad_reservada, solo entrada y salida
 """
 from django.contrib import admin
 from django.utils.html import format_html
-from django.db.models import Sum
 from .models import Inventario, MovimientoInventario
 
 
 class MovimientoInventarioInline(admin.TabularInline):
-    """Inline para mostrar movimientos dentro del inventario"""
+    """Inline para ver últimos movimientos (solo lectura)"""
     model = MovimientoInventario
     extra = 0
     readonly_fields = ('tipo', 'cantidad', 'motivo', 'usuario', 'fecha')
@@ -21,15 +21,12 @@ class MovimientoInventarioInline(admin.TabularInline):
 
 @admin.register(Inventario)
 class InventarioAdmin(admin.ModelAdmin):
-    """
-    Configuración del admin para el modelo Inventario
-    """
+    """Admin para Inventario (solo lectura en cantidad)"""
+    
     list_display = (
         'producto_codigo',
         'producto_nombre',
         'cantidad_actual_formatted',
-        'cantidad_reservada_formatted',
-        'cantidad_disponible_formatted',
         'ubicacion',
         'estado_stock',
         'updated_at'
@@ -38,7 +35,6 @@ class InventarioAdmin(admin.ModelAdmin):
     list_filter = (
         'producto__tipo',
         'producto__empresa',
-        'created_at',
         'updated_at'
     )
     
@@ -51,26 +47,24 @@ class InventarioAdmin(admin.ModelAdmin):
     ordering = ('-updated_at',)
     
     readonly_fields = (
-        'cantidad_disponible_formatted',
+        'producto',
+        'cantidad_actual',
         'estado_stock_detail',
         'created_at',
         'updated_at',
-        'historial_movimientos'
     )
-    
-    autocomplete_fields = ['producto']
     
     fieldsets = (
         ('Producto', {
-            'fields': ('producto',)
+            'fields': ('producto',),
+            'description': '⚠️ Para cambiar el stock, usa "Movimientos de Inventario" en el menú lateral'
         }),
-        ('Cantidades', {
+        ('Stock (Solo Lectura)', {
             'fields': (
                 'cantidad_actual',
-                'cantidad_reservada',
-                'cantidad_disponible_formatted',
                 'estado_stock_detail'
-            )
+            ),
+            'description': 'El stock se actualiza automáticamente con los movimientos'
         }),
         ('Ubicación', {
             'fields': ('ubicacion',)
@@ -79,77 +73,42 @@ class InventarioAdmin(admin.ModelAdmin):
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
-        ('Historial', {
-            'fields': ('historial_movimientos',),
-            'classes': ('collapse',)
-        }),
     )
     
     inlines = [MovimientoInventarioInline]
-    
     list_per_page = 25
     
-    actions = ['generar_reporte_stock', 'alertar_bajo_stock']
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.movimientos.exists():
+            return False
+        return True
     
     def producto_codigo(self, obj):
-        """Código del producto"""
         return obj.producto.codigo
     producto_codigo.short_description = 'Código'
     producto_codigo.admin_order_field = 'producto__codigo'
     
     def producto_nombre(self, obj):
-        """Nombre del producto"""
         return obj.producto.nombre
     producto_nombre.short_description = 'Producto'
     producto_nombre.admin_order_field = 'producto__nombre'
     
     def cantidad_actual_formatted(self, obj):
-        """Formatea la cantidad actual"""
         return format_html(
             '<span style="font-weight: bold;">{}</span>',
             obj.cantidad_actual
         )
-    cantidad_actual_formatted.short_description = 'Stock Actual'
+    cantidad_actual_formatted.short_description = 'Stock'
     cantidad_actual_formatted.admin_order_field = 'cantidad_actual'
     
-    def cantidad_reservada_formatted(self, obj):
-        """Formatea la cantidad reservada"""
-        if obj.cantidad_reservada > 0:
-            return format_html(
-                '<span style="color: orange;">{}</span>',
-                obj.cantidad_reservada
-            )
-        return obj.cantidad_reservada
-    cantidad_reservada_formatted.short_description = 'Reservado'
-    cantidad_reservada_formatted.admin_order_field = 'cantidad_reservada'
-    
-    def cantidad_disponible_formatted(self, obj):
-        """Formatea la cantidad disponible"""
-        disponible = obj.cantidad_disponible
-        
-        if disponible <= 0:
-            color = 'red'
-        elif disponible <= obj.producto.stock_minimo:
-            color = 'orange'
-        else:
-            color = 'green'
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color,
-            disponible
-        )
-    cantidad_disponible_formatted.short_description = 'Disponible'
-    
     def estado_stock(self, obj):
-        """Muestra el estado del stock"""
-        disponible = obj.cantidad_disponible
+        cantidad = obj.cantidad_actual
         
-        if disponible <= 0:
+        if cantidad <= 0:
             return format_html(
                 '<span style="color: white; background-color: red; padding: 3px 8px; border-radius: 3px;">⚠ SIN STOCK</span>'
             )
-        elif disponible <= obj.producto.stock_minimo:
+        elif cantidad <= obj.producto.stock_minimo:
             return format_html(
                 '<span style="color: white; background-color: orange; padding: 3px 8px; border-radius: 3px;">⚡ BAJO</span>'
             )
@@ -160,18 +119,17 @@ class InventarioAdmin(admin.ModelAdmin):
     estado_stock.short_description = 'Estado'
     
     def estado_stock_detail(self, obj):
-        """Detalle del estado del stock para el formulario"""
-        disponible = obj.cantidad_disponible
+        cantidad = obj.cantidad_actual
         stock_min = obj.producto.stock_minimo
         
-        if disponible <= 0:
+        if cantidad <= 0:
             mensaje = f"⚠️ SIN STOCK - Reabastecer urgentemente"
             color = "red"
-        elif disponible <= stock_min:
-            mensaje = f"⚡ STOCK BAJO - Disponible: {disponible} / Mínimo: {stock_min}"
+        elif cantidad <= stock_min:
+            mensaje = f"⚡ STOCK BAJO - Stock: {cantidad} / Mínimo: {stock_min}"
             color = "orange"
         else:
-            mensaje = f"✓ STOCK OK - Disponible: {disponible} / Mínimo: {stock_min}"
+            mensaje = f"✓ STOCK OK - Stock: {cantidad} / Mínimo: {stock_min}"
             color = "green"
         
         return format_html(
@@ -180,74 +138,12 @@ class InventarioAdmin(admin.ModelAdmin):
             mensaje
         )
     estado_stock_detail.short_description = 'Estado del Stock'
-    
-    def historial_movimientos(self, obj):
-        """Muestra resumen del historial de movimientos"""
-        from django.utils.safestring import mark_safe
-        
-        movimientos = obj.movimientos.all()[:10]
-        
-        if not movimientos:
-            return "No hay movimientos registrados"
-        
-        html = '<table style="width: 100%; border-collapse: collapse;">'
-        html += '<tr style="background-color: #f0f0f0;"><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th></tr>'
-        
-        for mov in movimientos:
-            tipo_color = {
-                'entrada': 'green',
-                'salida': 'red',
-                'ajuste': 'blue',
-                'devolucion': 'orange'
-            }.get(mov.tipo, 'black')
-            
-            html += f'<tr><td>{mov.fecha.strftime("%Y-%m-%d %H:%M")}</td>'
-            html += f'<td style="color: {tipo_color}; font-weight: bold;">{mov.get_tipo_display()}</td>'
-            html += f'<td>{mov.cantidad}</td>'
-            html += f'<td>{mov.motivo or "-"}</td></tr>'
-        
-        html += '</table>'
-        
-        return mark_safe(html)
-    historial_movimientos.short_description = 'Últimos 10 Movimientos'
-    
-    @admin.action(description='Generar reporte de stock')
-    def generar_reporte_stock(self, request, queryset):
-        """Genera un reporte de stock"""
-        total_productos = queryset.count()
-        total_stock = queryset.aggregate(Sum('cantidad_actual'))['cantidad_actual__sum'] or 0
-        
-        self.message_user(
-            request,
-            f'Reporte: {total_productos} productos con {total_stock} unidades en total'
-        )
-    
-    @admin.action(description='Alertar productos con stock bajo')
-    def alertar_bajo_stock(self, request, queryset):
-        """Muestra productos con stock bajo"""
-        bajo_stock = [
-            inv for inv in queryset 
-            if inv.cantidad_disponible <= inv.producto.stock_minimo
-        ]
-        
-        if bajo_stock:
-            productos = ', '.join([inv.producto.codigo for inv in bajo_stock])
-            self.message_user(
-                request,
-                f'⚠️ {len(bajo_stock)} producto(s) con stock bajo: {productos}',
-                level='warning'
-            )
-        else:
-            self.message_user(
-                request,
-                '✓ Todos los productos tienen stock adecuado'
-            )
 
 
 @admin.register(MovimientoInventario)
 class MovimientoInventarioAdmin(admin.ModelAdmin):
     """
-    Configuración del admin para MovimientoInventario
+    Admin para Movimientos - SOLO ENTRADA Y SALIDA
     """
     list_display = (
         'fecha',
@@ -272,61 +168,88 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
     
     ordering = ('-fecha',)
     
-    readonly_fields = (
-        'inventario',
-        'tipo',
-        'cantidad',
-        'motivo',
-        'usuario',
-        'fecha'
-    )
+    readonly_fields = ('usuario', 'fecha')
     
     fieldsets = (
-        ('Información del Movimiento', {
-            'fields': ('inventario', 'tipo', 'cantidad')
+        ('Movimiento', {
+            'fields': ('inventario', 'tipo', 'cantidad', 'motivo'),
+            'description': 'ENTRADA: Agrega al stock | SALIDA: Resta del stock'
         }),
-        ('Detalles', {
-            'fields': ('motivo', 'usuario', 'fecha')
+        ('Auditoría', {
+            'fields': ('usuario', 'fecha'),
+            'classes': ('collapse',)
         }),
     )
     
     list_per_page = 50
     
-    def has_add_permission(self, request):
-        """No permitir agregar movimientos directamente desde el admin"""
+    def has_delete_permission(self, request, obj=None):
         return False
     
-    def has_delete_permission(self, request, obj=None):
-        """No permitir eliminar movimientos (auditoría)"""
-        return False
+    def save_model(self, request, obj, form, change):
+        """Guardar el movimiento y actualizar el inventario automáticamente"""
+        if not obj.usuario:
+            obj.usuario = request.user
+        
+        super().save_model(request, obj, form, change)
+        
+        if not change:
+            inventario = obj.inventario
+            
+            if obj.tipo == 'entrada':
+                inventario.cantidad_actual += obj.cantidad
+                inventario.save()
+                self.message_user(
+                    request,
+                    f'✓ Entrada registrada: +{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
+                    level='success'
+                )
+            elif obj.tipo == 'salida':
+                if inventario.cantidad_actual >= obj.cantidad:
+                    inventario.cantidad_actual -= obj.cantidad
+                    inventario.save()
+                    self.message_user(
+                        request,
+                        f'✓ Salida registrada: -{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
+                        level='success'
+                    )
+                else:
+                    obj.delete()
+                    self.message_user(
+                        request,
+                        f'❌ Stock insuficiente. Stock actual: {inventario.cantidad_actual}, Solicitado: {obj.cantidad}',
+                        level='error'
+                    )
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Limitar las opciones de tipo a solo entrada y salida"""
+        form = super().get_form(request, obj, **kwargs)
+        if 'tipo' in form.base_fields:
+            form.base_fields['tipo'].choices = [
+                ('entrada', 'Entrada'),
+                ('salida', 'Salida'),
+            ]
+        return form
     
     def inventario_producto(self, obj):
-        """Producto del inventario"""
         return obj.inventario.producto.codigo
     inventario_producto.short_description = 'Producto'
     inventario_producto.admin_order_field = 'inventario__producto__codigo'
     
     def tipo_formatted(self, obj):
-        """Formatea el tipo de movimiento con color"""
-        colores = {
-            'entrada': 'green',
-            'salida': 'red',
-            'ajuste': 'blue',
-            'devolucion': 'orange'
-        }
-        
-        color = colores.get(obj.tipo, 'black')
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>',
-            color,
-            obj.get_tipo_display()
-        )
+        if obj.tipo == 'entrada':
+            return format_html(
+                '<span style="color: green; font-weight: bold;">↑ ENTRADA</span>'
+            )
+        elif obj.tipo == 'salida':
+            return format_html(
+                '<span style="color: red; font-weight: bold;">↓ SALIDA</span>'
+            )
+        return obj.get_tipo_display()
     tipo_formatted.short_description = 'Tipo'
     tipo_formatted.admin_order_field = 'tipo'
     
     def motivo_short(self, obj):
-        """Muestra el motivo acortado"""
         if obj.motivo:
             return obj.motivo[:50] + '...' if len(obj.motivo) > 50 else obj.motivo
         return '-'

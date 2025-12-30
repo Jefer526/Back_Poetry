@@ -36,7 +36,7 @@ INSTALLED_APPS = [
     # Local apps - descomentar cuando crees los modelos
     'backend.apps.empresas',
     'backend.apps.productos',
-    # 'backend.apps.inventario',
+    'backend.apps.inventario',
     # 'backend.apps.autenticacion',
 ]
 
