@@ -9,10 +9,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
-    
-    # API endpoints - descomentar cuando crees las apps
-    # path('api/empresas/', include('backend.apps.empresas.urls')),
-    # path('api/productos/', include('backend.apps.productos.urls')),
+    path('api/empresas/', include('backend.apps.empresas.urls')),
+    path('api/productos/', include('backend.apps.productos.urls')),
     # path('api/inventario/', include('backend.apps.inventario.urls')),
     # path('api/auth/', include('backend.apps.autenticacion.urls')),
 ]

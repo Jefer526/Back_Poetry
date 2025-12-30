@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_filters',
     
     # Third party apps
     'rest_framework',
@@ -33,8 +34,8 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps - descomentar cuando crees los modelos
-    # 'backend.apps.empresas',
-    # 'backend.apps.productos',
+    'backend.apps.empresas',
+    'backend.apps.productos',
     # 'backend.apps.inventario',
     # 'backend.apps.autenticacion',
 ]
