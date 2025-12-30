@@ -1,0 +1,147 @@
+# ========================================
+# PYTHON
+# ========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ========================================
+# VIRTUAL ENVIRONMENTS
+# ========================================
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# ========================================
+# DJANGO
+# ========================================
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media/
+/staticfiles/
+/static/
+
+# ========================================
+# POETRY
+# ========================================
+poetry.lock
+
+# ========================================
+# ENVIRONMENT VARIABLES
+# ========================================
+.env
+.env.local
+.env.*.local
+
+# ========================================
+# IDEs
+# ========================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ========================================
+# OS
+# ========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ========================================
+# TESTING
+# ========================================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.hypothesis/
+
+# ========================================
+# JUPYTER NOTEBOOK
+# ========================================
+.ipynb_checkpoints
+
+# ========================================
+# CELERY
+# ========================================
+celerybeat-schedule
+celerybeat.pid
+
+# ========================================
+# LOGS
+# ========================================
+logs/
+*.log
+
+# ========================================
+# BACKUPS
+# ========================================
+*.bak
+*.backup
+*.sql
+
+# ========================================
+# TEMP FILES
+# ========================================
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ========================================
+# NODE (para frontend)
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================================
+# ARCHIVES
+# ========================================
+*.zip
+*.tar.gz
+*.rar

@@ -1,0 +1,185 @@
+[tool.poetry]
+name = "lite-thinking"
+version = "1.0.0"
+description = "Sistema de Gestión de Inventario - Clean Architecture con Django"
+authors = ["Jefferson Perez <jefer5261@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+
+packages = [
+    { include = "dominio" },
+    { include = "backend" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"  # ← CORREGIDO: Django 5.0 requiere Python 3.10+
+
+# ========================================
+# FRAMEWORK DJANGO
+# ========================================
+django = "^5.0.0"
+djangorestframework = "^3.14.0"
+djangorestframework-simplejwt = "^5.3.0"
+
+# ========================================
+# BASE DE DATOS
+# ========================================
+psycopg2-binary = "^2.9.9"
+
+# ========================================
+# CONFIGURACIÓN Y SEGURIDAD
+# ========================================
+python-decouple = "^3.8"
+django-cors-headers = "^4.3.0"
+python-dotenv = "^1.0.0"
+
+# ========================================
+# VALIDACIONES (para dominio puro)
+# ========================================
+pydantic = "^2.5.0"
+
+# ========================================
+# ARCHIVOS Y MULTIMEDIA
+# ========================================
+pillow = "^10.1.0"
+reportlab = "^4.0.7"
+
+# ========================================
+# TAREAS ASÍNCRONAS
+# ========================================
+celery = "^5.3.4"
+redis = "^5.0.1"
+
+# ========================================
+# EMAILS
+# ========================================
+django-anymail = "^10.2"
+
+# ========================================
+# UTILIDADES
+# ========================================
+python-dateutil = "^2.8.2"
+
+[tool.poetry.group.dev.dependencies]
+# ========================================
+# TESTING
+# ========================================
+pytest = "^7.4.0"
+pytest-django = "^4.7.0"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+pytest-asyncio = "^0.23.0"
+factory-boy = "^3.3.0"
+faker = "^20.1.0"
+
+# ========================================
+# CALIDAD DE CÓDIGO
+# ========================================
+black = "^23.12.0"
+flake8 = "^6.1.0"
+isort = "^5.13.0"
+mypy = "^1.7.0"
+django-stubs = "^4.2.0"
+pylint = "^3.0.0"
+
+# ========================================
+# DEBUGGING Y DESARROLLO
+# ========================================
+django-debug-toolbar = "^4.2.0"
+ipython = "^8.18.0"
+django-extensions = "^3.2.0"
+
+# ========================================
+# DOCUMENTACIÓN API
+# ========================================
+drf-spectacular = "^0.27.0"
+
+[tool.poetry.group.prod]
+optional = true
+
+[tool.poetry.group.prod.dependencies]
+gunicorn = "^21.2.0"
+whitenoise = "^6.6.0"
+sentry-sdk = "^1.39.0"
+
+[tool.poetry.scripts]
+manage = "backend.manage:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# ========================================
+# CONFIGURACIÓN BLACK
+# ========================================
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.eggs
+    | \.git
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | build
+    | dist
+    | migrations
+)/
+'''
+
+# ========================================
+# CONFIGURACIÓN ISORT
+# ========================================
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["dominio", "backend"]
+known_django = ["django", "rest_framework"]
+sections = ["FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+skip = ["migrations", ".venv"]
+
+# ========================================
+# CONFIGURACIÓN PYTEST
+# ========================================
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "backend.config.settings"
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--cov=dominio",
+    "--cov=backend",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+]
+testpaths = ["dominio/tests", "backend/apps", "tests"]
+markers = [
+    "unit: Tests unitarios",
+    "integration: Tests de integración",
+]
+
+# ========================================
+# CONFIGURACIÓN MYPY
+# ========================================
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+plugins = ["mypy_django_plugin.main"]
+exclude = ["migrations/", "tests/"]
+
+[[tool.mypy.overrides]]
+module = "*.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "redis.*", "reportlab.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "backend.config.settings"
