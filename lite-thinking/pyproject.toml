@@ -60,6 +60,7 @@ django-anymail = "^10.2"
 # ========================================
 python-dateutil = "^2.8.2"
 django-filter = "^25.2"
+google-genai = "^1.56.0"
 
 [tool.poetry.group.dev.dependencies]
 # ========================================

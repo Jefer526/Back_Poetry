@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'backend.apps.productos',
     'backend.apps.inventario',
     'backend.apps.autenticacion',
+    'backend.apps.ia', 
+
 ]
 
 MIDDLEWARE = [
@@ -291,3 +293,8 @@ if not DEBUG:
 
 
 AUTH_USER_MODEL = 'autenticacion.Usuario'
+
+
+# Gemini API Configuration
+import os
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', None) 

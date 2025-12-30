@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/productos/', include('backend.apps.productos.urls')),
     path('api/inventario/', include('backend.apps.inventario.urls')),
     path('api/auth/', include('backend.apps.autenticacion.urls')),
+    path('api/ia/', include('backend.apps.ia.urls')), 
 ]
 
 # Servir archivos estáticos y media en desarrollo
