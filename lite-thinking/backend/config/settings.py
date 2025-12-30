@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'backend.apps.empresas',
     'backend.apps.productos',
     'backend.apps.inventario',
-    # 'backend.apps.autenticacion',
+    'backend.apps.autenticacion',
 ]
 
 MIDDLEWARE = [
@@ -288,3 +288,6 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+
+AUTH_USER_MODEL = 'autenticacion.Usuario'

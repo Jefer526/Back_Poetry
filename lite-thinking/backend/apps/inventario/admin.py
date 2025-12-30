@@ -1,14 +1,18 @@
 """
-Admin de Inventario - VERSIÓN FINAL SIMPLE
-Sin cantidad_reservada, solo entrada y salida
+Admin de Inventario - CON PDF Y EMAIL
 """
 from django.contrib import admin
 from django.utils.html import format_html
+from django.http import HttpResponse
+from django.core.mail import EmailMessage
+from django.conf import settings
 from .models import Inventario, MovimientoInventario
+from .reports import generar_pdf_inventario, generar_pdf_movimientos
+from datetime import datetime
 
 
 class MovimientoInventarioInline(admin.TabularInline):
-    """Inline para ver últimos movimientos (solo lectura)"""
+    """Inline para ver últimos movimientos"""
     model = MovimientoInventario
     extra = 0
     readonly_fields = ('tipo', 'cantidad', 'motivo', 'usuario', 'fecha')
@@ -21,7 +25,7 @@ class MovimientoInventarioInline(admin.TabularInline):
 
 @admin.register(Inventario)
 class InventarioAdmin(admin.ModelAdmin):
-    """Admin para Inventario (solo lectura en cantidad)"""
+    """Admin para Inventario con PDF y Email"""
     
     list_display = (
         'producto_codigo',
@@ -64,7 +68,6 @@ class InventarioAdmin(admin.ModelAdmin):
                 'cantidad_actual',
                 'estado_stock_detail'
             ),
-            'description': 'El stock se actualiza automáticamente con los movimientos'
         }),
         ('Ubicación', {
             'fields': ('ubicacion',)
@@ -77,6 +80,13 @@ class InventarioAdmin(admin.ModelAdmin):
     
     inlines = [MovimientoInventarioInline]
     list_per_page = 25
+    
+    # ACCIONES PERSONALIZADAS
+    actions = [
+        'descargar_pdf_inventario',
+        'enviar_pdf_por_email',
+        'reporte_stock_bajo',
+    ]
     
     def has_delete_permission(self, request, obj=None):
         if obj and obj.movimientos.exists():
@@ -138,13 +148,122 @@ class InventarioAdmin(admin.ModelAdmin):
             mensaje
         )
     estado_stock_detail.short_description = 'Estado del Stock'
+    
+    # ========================================
+    # ACCIÓN: DESCARGAR PDF
+    # ========================================
+    @admin.action(description='📄 Descargar PDF de inventarios seleccionados')
+    def descargar_pdf_inventario(self, request, queryset):
+        """Genera y descarga PDF de los inventarios seleccionados"""
+        try:
+            # Generar PDF
+            pdf_buffer = generar_pdf_inventario(
+                queryset,
+                titulo=f"Reporte de Inventario - {datetime.now().strftime('%d/%m/%Y')}"
+            )
+            
+            # Crear respuesta HTTP
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            filename = f"inventario_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            self.message_user(request, f'✓ PDF generado exitosamente: {queryset.count()} producto(s)')
+            return response
+            
+        except Exception as e:
+            self.message_user(request, f'❌ Error al generar PDF: {str(e)}', level='error')
+    
+    # ========================================
+    # ACCIÓN: ENVIAR PDF POR EMAIL
+    # ========================================
+    @admin.action(description='📧 Enviar PDF por correo electrónico')
+    def enviar_pdf_por_email(self, request, queryset):
+        """Genera PDF y lo envía por email"""
+        try:
+            # Generar PDF
+            pdf_buffer = generar_pdf_inventario(
+                queryset,
+                titulo=f"Reporte de Inventario - {datetime.now().strftime('%d/%m/%Y')}"
+            )
+            
+            # Preparar email
+            destinatario = request.user.email if request.user.email else settings.DEFAULT_FROM_EMAIL
+            
+            email = EmailMessage(
+                subject=f'Reporte de Inventario - {datetime.now().strftime("%d/%m/%Y")}',
+                body=f'Adjunto encontrará el reporte de inventario solicitado.\n\n'
+                     f'Total de productos: {queryset.count()}\n'
+                     f'Generado por: {request.user.username}\n'
+                     f'Fecha: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[destinatario],
+            )
+            
+            # Adjuntar PDF
+            filename = f"inventario_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            email.attach(filename, pdf_buffer.read(), 'application/pdf')
+            
+            # Enviar
+            email.send()
+            
+            self.message_user(
+                request,
+                f'✓ Email enviado exitosamente a: {destinatario}',
+                level='success'
+            )
+            
+        except Exception as e:
+            self.message_user(
+                request,
+                f'❌ Error al enviar email: {str(e)}',
+                level='error'
+            )
+    
+    # ========================================
+    # ACCIÓN: REPORTE DE STOCK BAJO
+    # ========================================
+    @admin.action(description='📊 Reporte de productos con stock bajo')
+    def reporte_stock_bajo(self, request, queryset):
+        """Genera reporte de productos con stock bajo"""
+        bajo_stock = [
+            inv for inv in queryset 
+            if inv.cantidad_actual <= inv.producto.stock_minimo
+        ]
+        
+        if not bajo_stock:
+            self.message_user(
+                request,
+                '✓ Todos los productos seleccionados tienen stock adecuado',
+                level='success'
+            )
+            return
+        
+        # Generar PDF solo de productos con stock bajo
+        try:
+            pdf_buffer = generar_pdf_inventario(
+                bajo_stock,
+                titulo=f"Alerta: Productos con Stock Bajo - {datetime.now().strftime('%d/%m/%Y')}"
+            )
+            
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            filename = f"stock_bajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            self.message_user(
+                request,
+                f'⚠️ {len(bajo_stock)} producto(s) con stock bajo. PDF generado.',
+                level='warning'
+            )
+            return response
+            
+        except Exception as e:
+            self.message_user(request, f'❌ Error: {str(e)}', level='error')
 
 
 @admin.register(MovimientoInventario)
 class MovimientoInventarioAdmin(admin.ModelAdmin):
-    """
-    Admin para Movimientos - SOLO ENTRADA Y SALIDA
-    """
+    """Admin para Movimientos con PDF"""
+    
     list_display = (
         'fecha',
         'inventario_producto',
@@ -167,7 +286,6 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
     )
     
     ordering = ('-fecha',)
-    
     readonly_fields = ('usuario', 'fecha')
     
     fieldsets = (
@@ -183,11 +301,14 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
     
     list_per_page = 50
     
+    # ACCIONES
+    actions = ['descargar_pdf_movimientos']
+    
     def has_delete_permission(self, request, obj=None):
         return False
     
     def save_model(self, request, obj, form, change):
-        """Guardar el movimiento y actualizar el inventario automáticamente"""
+        """Guardar movimiento y actualizar inventario"""
         if not obj.usuario:
             obj.usuario = request.user
         
@@ -201,7 +322,7 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
                 inventario.save()
                 self.message_user(
                     request,
-                    f'✓ Entrada registrada: +{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
+                    f'✓ Entrada: +{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
                     level='success'
                 )
             elif obj.tipo == 'salida':
@@ -210,19 +331,19 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
                     inventario.save()
                     self.message_user(
                         request,
-                        f'✓ Salida registrada: -{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
+                        f'✓ Salida: -{obj.cantidad} unidades. Nuevo stock: {inventario.cantidad_actual}',
                         level='success'
                     )
                 else:
                     obj.delete()
                     self.message_user(
                         request,
-                        f'❌ Stock insuficiente. Stock actual: {inventario.cantidad_actual}, Solicitado: {obj.cantidad}',
+                        f'❌ Stock insuficiente. Actual: {inventario.cantidad_actual}, Solicitado: {obj.cantidad}',
                         level='error'
                     )
     
     def get_form(self, request, obj=None, **kwargs):
-        """Limitar las opciones de tipo a solo entrada y salida"""
+        """Limitar opciones de tipo"""
         form = super().get_form(request, obj, **kwargs)
         if 'tipo' in form.base_fields:
             form.base_fields['tipo'].choices = [
@@ -241,16 +362,35 @@ class MovimientoInventarioAdmin(admin.ModelAdmin):
             return format_html(
                 '<span style="color: green; font-weight: bold;">↑ ENTRADA</span>'
             )
-        elif obj.tipo == 'salida':
-            return format_html(
-                '<span style="color: red; font-weight: bold;">↓ SALIDA</span>'
-            )
-        return obj.get_tipo_display()
+        return format_html(
+            '<span style="color: red; font-weight: bold;">↓ SALIDA</span>'
+        )
     tipo_formatted.short_description = 'Tipo'
-    tipo_formatted.admin_order_field = 'tipo'
     
     def motivo_short(self, obj):
         if obj.motivo:
             return obj.motivo[:50] + '...' if len(obj.motivo) > 50 else obj.motivo
         return '-'
     motivo_short.short_description = 'Motivo'
+    
+    # ========================================
+    # ACCIÓN: DESCARGAR PDF DE MOVIMIENTOS
+    # ========================================
+    @admin.action(description='📄 Descargar PDF de movimientos seleccionados')
+    def descargar_pdf_movimientos(self, request, queryset):
+        """Genera PDF de movimientos"""
+        try:
+            pdf_buffer = generar_pdf_movimientos(
+                queryset,
+                titulo=f"Reporte de Movimientos - {datetime.now().strftime('%d/%m/%Y')}"
+            )
+            
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            filename = f"movimientos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            self.message_user(request, f'✓ PDF generado: {queryset.count()} movimiento(s)')
+            return response
+            
+        except Exception as e:
+            self.message_user(request, f'❌ Error: {str(e)}', level='error')

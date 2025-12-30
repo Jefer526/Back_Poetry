@@ -1,8 +1,8 @@
 """
-Modelos Django para Inventario - VERSIÓN FINAL SIMPLE
-Sin cantidad_reservada, solo entrada y salida
+Modelos Django para Inventario - CON AUTH_USER_MODEL CORRECTO
 """
 from django.db import models
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 
@@ -90,7 +90,7 @@ class MovimientoInventario(models.Model):
     )
     
     usuario = models.ForeignKey(
-        'auth.User',
+        settings.AUTH_USER_MODEL,  # ✅ CORRECTO: Usa el modelo personalizado
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
